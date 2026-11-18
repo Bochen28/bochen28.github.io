@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Warehouse Tools</title>
+  <meta name="description" content="Phone tools for the warehouse: Pallet Scanner and Package Finder. They run in the browser and can be installed as apps.">
+  <meta name="theme-color" content="#263238">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23263238'/%3E%3Crect x='12' y='12' width='17' height='17' rx='4' fill='%231565C0'/%3E%3Crect x='35' y='12' width='17' height='17' rx='4' fill='%2300796B'/%3E%3Crect x='12' y='35' width='17' height='17' rx='4' fill='%23ffffff' opacity='.35'/%3E%3Crect x='35' y='35' width='17' height='17' rx='4' fill='%23ffffff' opacity='.35'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1b2227;
+      --muted: #5d6870;
+      --line: #dfe4e8;
+      --link: #1565c0;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101417;
+        --card: #1a2025;
+        --text: #e4e9ec;
+        --muted: #a2adb4;
+        --line: #2b3339;
+        --link: #a9c7ff;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: calc(env(safe-area-inset-top) + 28px) 16px calc(env(safe-area-inset-bottom) + 28px);
+    }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 28px; }
+    .lead { margin: 0 0 24px; color: var(--muted); }
+    .tool {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      color: inherit;
+      text-decoration: none;
+    }
+    .tool:active { transform: scale(0.99); }
+    .tool img { width: 64px; height: 64px; border-radius: 15px; flex: none; }
+    .tool h2 { margin: 0 0 2px; font-size: 19px; }
+    .tool p { margin: 0; color: var(--muted); font-size: 15px; }
+    .tool .open { margin-left: auto; color: var(--link); font-weight: 600; white-space: nowrap; }
+    .install { margin-top: 28px; padding: 16px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
+    .install h2 { margin: 0 0 6px; font-size: 17px; }
+    .install p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+    @media (max-width: 420px) { .tool .open { display: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Warehouse Tools</h1>
+    <p class="lead">Phone tools for the warehouse. They run in the browser, work offline after the first start, and can be installed like apps.</p>
+
+    <a class="tool" href="/pallet-scanner/">
+      <img src="/pallet-scanner/icons/icon-192.png" alt="">
+      <div>
+        <h2>Pallet Scanner</h2>
+        <p>Scan every package on a pallet, get the total and the full list, and compare it with the printed list from the system.</p>
+      </div>
+      <span class="open">Open ›</span>
+    </a>
+
+    <a class="tool" href="/package-finder/">
+      <img src="/package-finder/icons/icon-192.png" alt="">
+      <div>
+        <h2>Package Finder</h2>
+        <p>Enter the package numbers you are looking for and sweep the camera over the packages: it shows where they are.</p>
+      </div>
+      <span class="open">Open ›</span>
+    </a>
+
+    <section class="install">
+      <h2>Install a tool as an app</h2>
+      <p><strong>iPhone:</strong> open the tool in Safari, tap Share ⬆︎, then <strong>Add to Home Screen</strong>.</p>
+      <p><strong>Android:</strong> open the tool in Chrome, tap ⋮, then <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</p>
+    </section>
+  </main>
+</body>
+</html>
