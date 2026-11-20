@@ -19,6 +19,19 @@ English), in as many copies as you need.
 5. **New CMR** clears the note for the next shipment but keeps the sender, the place and country of taking over,
    the country (Pays/Country) and the place of issue; the dates are set to today.
 
+## Templates
+
+Fields that are the same on many notes (your sender, a regular consignee and delivery address, the carrier,
+instructions …) can be saved as a **template**: fill them in, tap **Save as template**, give it a name and tick the
+parts to keep (only filled-in parts are listed; vehicle numbers and goods lines are not ticked by default). **Use**
+fills the template in (with **Undo**); saving again under the same name updates it. The CMR number, the dates and the
+carrier's reservations are never saved.
+
+Templates are kept in the browser. **Export to file** saves all of them to one file (`cmr-templates-<date>.json`):
+keep it as a backup, put it on a shared drive, or **Import from file** on another computer or phone. Importing adds
+the templates from the file; for names you already have, it asks whether to replace yours. Only known CMR fields are
+read from a file, so a wrong or edited file cannot put anything else into the form.
+
 Boxes 22–24 (signatures, stamps, goods received), the arrival and departure times and the non-contractual part are
 left empty for writing by hand. The form is printed at 97.5% of its size, centred, so nothing falls into the edge
 of the paper that printers cannot print.

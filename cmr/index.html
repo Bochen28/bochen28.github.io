@@ -27,6 +27,21 @@
   <div class="layout">
     <form id="form" class="editor" autocomplete="off" novalidate>
 
+      <section class="card templates">
+        <div class="card-head">
+          <h2>Templates</h2>
+          <button id="tpl-save" class="secondary-btn" type="button">Save as template</button>
+        </div>
+        <p id="tpl-empty" class="hint">Save the fields you fill in every time (sender, a regular consignee and delivery address, carrier, instructions …) and fill them in again with one tap.</p>
+        <ul id="tpl-list" class="tpl-list"></ul>
+        <div class="tpl-file">
+          <button id="tpl-export" class="text-btn" type="button">Export to file</button>
+          <button id="tpl-import-btn" class="text-btn" type="button">Import from file</button>
+          <input id="tpl-import" type="file" accept=".json,application/json" hidden>
+        </div>
+        <p class="hint small">Templates are kept in this browser. Export them to a file to keep a copy, or to use them on another computer or phone.</p>
+      </section>
+
       <section class="card">
         <p class="form-note">Prints on the official blank <strong>IRU CMR Model 2007</strong> (French / English). The numbers below are its box numbers.</p>
         <div class="row">
@@ -196,6 +211,28 @@
     </aside>
   </div>
 </div>
+
+<dialog id="tpl-dialog" class="dialog" aria-labelledby="tpl-dialog-title">
+  <form id="tpl-form" method="dialog">
+    <h2 id="tpl-dialog-title">Save as template</h2>
+    <label class="field">
+      <span class="fl">Name</span>
+      <input id="tpl-name" type="text" maxlength="80" required placeholder="e.g. Muster Handel, Dortmund" autocomplete="off">
+    </label>
+    <fieldset class="tpl-groups">
+      <legend class="fl">Save these fields</legend>
+      <div id="tpl-groups"></div>
+    </fieldset>
+    <p class="hint small">Parts that are empty are not listed. The CMR number, the dates and the carrier's reservations are never saved.</p>
+    <p id="tpl-error" class="tpl-error" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button class="text-btn" type="button" id="tpl-cancel">Cancel</button>
+      <button class="primary-btn" type="submit" id="tpl-confirm">Save template</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden><span id="toast-text"></span><button id="toast-undo" class="text-btn" type="button" hidden>Undo</button></div>
 
 <datalist id="packing-list">
   <option value="EUR pallet">

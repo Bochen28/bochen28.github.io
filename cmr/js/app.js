@@ -1,15 +1,17 @@
 // CMR Form: fill in the consignment note, preview it on IRU's blank CMR (Model 2007) and print it
-// in as many copies as needed.
+// in as many copies as needed. Recurring fields can be saved as templates (kept in the browser, exportable to a file).
 import { copyInfo } from "./texts.js";
 import { renderSheet, fitSheet, copyHead } from "./sheet.js";
 import { goodsTotals } from "./numbers.js";
+import {
+  ITEM_FIELDS, GROUPS, groupFilled, groupPreview, pickFields, summary, cleanTemplates, sortTemplates, exportText, parseFile,
+} from "./templates.js";
 
 const STORE_KEY = "cmr-form:v1";
 const TEMPLATE_URL = "template/iru-cmr-2007.svg";
 const MAX_COPIES = 10;
 // Kept when starting a new CMR: they are usually the same for every note from this warehouse.
 const KEEP_ON_NEW = ["country", "sender", "takeoverPlace", "takeoverCountry", "issuedPlace"];
-const ITEM_FIELDS = ["marks", "packages", "packing", "nature", "weight", "volume"];
 const CHARGE_ROWS = [
   ["carriage", "Carriage charges"],
   ["supplementary", "Supplementary charges"],
@@ -195,6 +197,7 @@ $("#new-btn").addEventListener("click", () => {
 $("#clear-btn").addEventListener("click", () => {
   if (!confirm("Clear every field of this CMR, the sender included?")) return;
   data = emptyData();
+  lastTemplate = "";
   fillForm();
   changed();
 });
@@ -326,9 +329,206 @@ window.addEventListener("afterprint", () => {
 
 window.addEventListener("pagehide", saveNow);
 
+// ---------- Templates ----------
+
+const TEMPLATES_KEY = "cmr-form:templates:v1";
+let templates = [];
+// The template used last: offered as the name when saving again, so it is easy to update.
+let lastTemplate = "";
+
+function loadTemplates() {
+  try {
+    templates = sortTemplates(cleanTemplates(JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "{}").templates));
+  } catch {
+    templates = [];
+  }
+}
+
+function storeTemplates() {
+  try {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify({ templates }));
+  } catch {
+    toast("The templates could not be kept in this browser (private mode or storage full). Export them to a file.");
+  }
+}
+
+function renderTemplates() {
+  $("#tpl-list").innerHTML = templates
+    .map(
+      (t, i) => `<li class="tpl">
+        <div class="tpl-text"><b>${esc(t.name)}</b><span>${esc(summary(t.fields))}</span></div>
+        <button class="secondary-btn" type="button" data-use="${i}">Use</button>
+        <button class="icon-btn" type="button" data-del="${i}" aria-label="Delete template ${esc(t.name)}">✕</button>
+      </li>`,
+    )
+    .join("");
+  $("#tpl-empty").hidden = templates.length > 0;
+  $("#tpl-export").disabled = !templates.length;
+}
+
+function applyTemplate(t) {
+  const before = JSON.parse(JSON.stringify(data));
+  data = { ...data, ...JSON.parse(JSON.stringify(t.fields)) };
+  data.items = (data.items?.length ? data.items : [emptyItem()]).map((item) => ({ ...emptyItem(), ...item }));
+  lastTemplate = t.name;
+  fillForm();
+  changed();
+  toast(`Template “${t.name}” filled in.`, () => {
+    data = before;
+    fillForm();
+    changed();
+  });
+}
+
+$("#tpl-list").addEventListener("click", (event) => {
+  const use = event.target.closest("[data-use]");
+  const del = event.target.closest("[data-del]");
+  if (use) applyTemplate(templates[Number(use.dataset.use)]);
+  if (!del) return;
+  const t = templates[Number(del.dataset.del)];
+  if (!confirm(`Delete the template “${t.name}”?`)) return;
+  templates = templates.filter((x) => x !== t);
+  storeTemplates();
+  renderTemplates();
+  toast(`Template “${t.name}” deleted.`, () => {
+    templates = sortTemplates([...templates.filter((x) => x.name.toLowerCase() !== t.name.toLowerCase()), t]);
+    storeTemplates();
+    renderTemplates();
+  });
+});
+
+// Save dialog: name, and the parts of the form to keep (only filled-in parts can be ticked).
+const dialog = $("#tpl-dialog");
+
+function suggestName() {
+  const first = (v) => (v || "").trim().split("\n")[0];
+  return lastTemplate || first(data.consignee) || first(data.deliveryPlace) || first(data.sender) || `Template ${templates.length + 1}`;
+}
+
+$("#tpl-save").addEventListener("click", () => {
+  if (!GROUPS.some((g) => groupFilled(g, data))) {
+    toast("Fill in the fields you use every time first, then save them as a template.");
+    return;
+  }
+  // Only the parts that are filled in can be saved, so only those are listed.
+  $("#tpl-groups").innerHTML = GROUPS.filter((g) => groupFilled(g, data))
+    .map(
+      (g) => `<label class="check">
+        <input type="checkbox" value="${g.id}"${g.off ? "" : " checked"}>
+        <span class="check-text"><span><b class="box-no">${g.boxes}</b> ${esc(g.label)}</span>
+          <small>${esc(groupPreview(g, data))}</small></span>
+      </label>`,
+    )
+    .join("");
+  $("#tpl-name").value = suggestName();
+  $("#tpl-error").hidden = true;
+  dialog.showModal();
+  $("#tpl-name").select();
+});
+
+$("#tpl-cancel").addEventListener("click", () => dialog.close());
+
+$("#tpl-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = $("#tpl-name").value.trim().slice(0, 80);
+  const ids = [...$("#tpl-groups").querySelectorAll("input:checked")].map((input) => input.value);
+  const error = (message) => {
+    $("#tpl-error").textContent = message;
+    $("#tpl-error").hidden = false;
+  };
+  if (!name) return error("Give the template a name.");
+  if (!ids.length) return error("Tick at least one part of the form to save.");
+  const same = templates.find((t) => t.name.toLowerCase() === name.toLowerCase());
+  if (same && !confirm(`There is already a template “${same.name}”. Replace it?`)) return;
+  templates = sortTemplates([
+    ...templates.filter((t) => t !== same),
+    { name, fields: pickFields(data, ids), saved: new Date().toISOString() },
+  ]);
+  storeTemplates();
+  renderTemplates();
+  lastTemplate = name;
+  dialog.close();
+  toast(`Template “${name}” saved.`);
+});
+
+// Export all templates to one JSON file; import them again from such a file.
+$("#tpl-export").addEventListener("click", () => {
+  const name = `cmr-templates-${today()}.json`;
+  const url = URL.createObjectURL(new Blob([exportText(templates)], { type: "application/json" }));
+  const link = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  toast(`${templates.length} template${templates.length === 1 ? "" : "s"} exported to ${name}.`);
+});
+
+$("#tpl-import-btn").addEventListener("click", () => $("#tpl-import").click());
+
+$("#tpl-import").addEventListener("change", async (event) => {
+  const input = event.target;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  let incoming;
+  try {
+    if (file.size > 2_000_000) throw new Error("This file is too large to be a CMR templates file.");
+    incoming = parseFile(await file.text());
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
+  const mine = new Map(templates.map((t) => [t.name.toLowerCase(), t]));
+  const clashes = incoming.filter((t) => mine.has(t.name.toLowerCase()));
+  const replace =
+    clashes.length > 0 &&
+    confirm(
+      `${clashes.length === 1 ? "A template in the file has" : `${clashes.length} templates in the file have`} the same name as yours:\n\n` +
+        `${clashes.map((t) => t.name).join("\n")}\n\nOK: replace yours with the ones from the file.\nCancel: keep yours (the other templates are still imported).`,
+    );
+  let added = 0;
+  for (const t of incoming) {
+    const key = t.name.toLowerCase();
+    if (mine.has(key) && !replace) continue;
+    mine.set(key, t);
+    added += 1;
+  }
+  templates = sortTemplates([...mine.values()]);
+  storeTemplates();
+  renderTemplates();
+  toast(added ? `${added} template${added === 1 ? "" : "s"} imported from ${file.name}.` : "Nothing imported: you kept your templates.");
+});
+
+// Another tab of the app changed the templates.
+window.addEventListener("storage", (event) => {
+  if (event.key !== TEMPLATES_KEY) return;
+  loadTemplates();
+  renderTemplates();
+});
+
+// ---------- Notice with an optional Undo ----------
+
+let toastTimer = 0;
+function toast(message, undo) {
+  $("#toast-text").textContent = message;
+  const undoBtn = $("#toast-undo");
+  undoBtn.hidden = !undo;
+  undoBtn.onclick = undo
+    ? () => {
+        undo();
+        $("#toast").hidden = true;
+      }
+    : null;
+  $("#toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => ($("#toast").hidden = true), undo ? 8000 : 4500);
+}
+
 // ---------- Start ----------
 
 load();
+loadTemplates();
+renderTemplates();
 renderCopies();
 fillForm();
 $("#blank-btn").disabled = true;
