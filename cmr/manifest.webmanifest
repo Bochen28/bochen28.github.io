@@ -1,0 +1,14 @@
+{
+  "name": "CMR Form",
+  "short_name": "CMR Form",
+  "description": "Fill in the CMR international consignment note and print it on A4, as many copies as you need.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#BF360C",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
