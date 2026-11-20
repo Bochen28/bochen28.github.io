@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>CMR Form</title>
-  <meta name="description" content="Fill in the CMR international consignment note and print it on A4, as many copies as you need.">
+  <meta name="description" content="Fill in the CMR consignment note and print it on the official IRU CMR Model 2007 form, as many copies as you need.">
   <meta name="theme-color" content="#BF360C">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -28,19 +28,16 @@
     <form id="form" class="editor" autocomplete="off" novalidate>
 
       <section class="card">
+        <p class="form-note">Prints on the official blank <strong>IRU CMR Model 2007</strong> (French / English). The numbers below are its box numbers.</p>
         <div class="row">
           <label class="field grow">
-            <span class="fl">CMR number</span>
+            <span class="fl">CMR number <span class="muted">· No, top right and bottom left</span></span>
             <input data-key="no" type="text" placeholder="Optional" spellcheck="false">
           </label>
-          <label class="field">
-            <span class="fl">Printed in</span>
-            <select id="lang-main"></select>
+          <label class="field country">
+            <span class="fl">Pays / Country</span>
+            <input data-key="country" type="text" placeholder="e.g. PL" autocapitalize="characters" spellcheck="false">
           </label>
-        </div>
-        <div class="field">
-          <span class="fl">Also print the labels in <span class="muted">(up to 2)</span></span>
-          <div id="lang-extra" class="chips"></div>
         </div>
       </section>
 
@@ -57,93 +54,104 @@
       </section>
 
       <section class="card">
-        <h2>Places and documents</h2>
-        <label class="field">
-          <span class="fl"><b>3</b> Place of delivery <span class="muted">· place, country</span></span>
-          <input data-key="delivery" type="text">
-        </label>
+        <h2>Taking over and delivery</h2>
         <div class="row">
           <label class="field grow">
-            <span class="fl"><b>4</b> Place of taking over <span class="muted">· place, country</span></span>
+            <span class="fl"><b>3</b> Taking over the goods: place</span>
             <input data-key="takeoverPlace" type="text">
+          </label>
+          <label class="field country">
+            <span class="fl">Country</span>
+            <input data-key="takeoverCountry" type="text">
           </label>
           <label class="field date">
             <span class="fl">Date</span>
             <input data-key="takeoverDate" type="date">
           </label>
         </div>
+        <div class="row">
+          <label class="field grow">
+            <span class="fl"><b>4</b> Delivery of the goods: place</span>
+            <input data-key="deliveryPlace" type="text">
+          </label>
+          <label class="field country">
+            <span class="fl">Country</span>
+            <input data-key="deliveryCountry" type="text">
+          </label>
+        </div>
         <label class="field">
-          <span class="fl"><b>5</b> Documents attached</span>
-          <input data-key="documents" type="text" placeholder="e.g. invoice, packing list">
+          <span class="fl">Warehouse opening hours</span>
+          <input data-key="deliveryHours" type="text" placeholder="e.g. Mon–Fri 6:00–14:00">
         </label>
+        <p class="hint">Times of arrival and departure stay empty for writing in at the dock.</p>
       </section>
 
       <section class="card">
-        <h2>Goods <span class="muted">· boxes 6–12</span></h2>
+        <h2>Goods <span class="muted">· boxes 10–15</span></h2>
         <div id="items"></div>
         <button id="add-item" class="secondary-btn" type="button">+ Add goods line</button>
         <p id="goods-total" class="total-line"></p>
         <details class="sub" id="adr-details">
           <summary>Dangerous goods (ADR)</summary>
+          <p class="hint">Printed on the last line of the goods box. Write the proper shipping name in 13 Nature of the goods.</p>
           <div class="row">
-            <label class="field"><span class="fl">UN No.</span><input data-key="adrUn" type="text" inputmode="numeric"></label>
-            <label class="field grow"><span class="fl">Proper shipping name</span><input data-key="adrName" type="text"></label>
-          </div>
-          <div class="row">
-            <label class="field grow"><span class="fl">Label model No.</span><input data-key="adrLabel" type="text"></label>
+            <label class="field grow"><span class="fl">UN number</span><input data-key="adrUn" type="text" inputmode="numeric"></label>
+            <label class="field grow"><span class="fl">Label number</span><input data-key="adrLabel" type="text"></label>
             <label class="field grow"><span class="fl">Packing group</span><input data-key="adrGroup" type="text"></label>
           </div>
         </details>
       </section>
 
       <section class="card">
-        <h2>Sender's instructions</h2>
-        <label class="field">
-          <span class="fl"><b>13</b> Sender's instructions <span class="muted">· customs and other formalities</span></span>
-          <textarea data-key="instructions" rows="3"></textarea>
-        </label>
-        <div class="field">
-          <span class="fl"><b>14</b> Payment for carriage</span>
-          <div class="seg" role="radiogroup">
-            <label><input type="radio" name="payment" data-key="payment" value=""><span>Not set</span></label>
-            <label><input type="radio" name="payment" data-key="payment" value="paid"><span>Carriage paid</span></label>
-            <label><input type="radio" name="payment" data-key="payment" value="forward"><span>Carriage forward</span></label>
-          </div>
-          <input data-key="paymentNote" type="text" placeholder="Note (optional), e.g. Incoterms DAP">
-        </div>
-        <label class="field">
-          <span class="fl"><b>15</b> Cash on delivery</span>
-          <input data-key="cod" type="text" placeholder="Amount and currency">
-        </label>
-        <label class="field">
-          <span class="fl"><b>19</b> Special agreements</span>
-          <textarea data-key="special" rows="2"></textarea>
-        </label>
-      </section>
-
-      <section class="card">
         <h2>Carrier</h2>
         <label class="field">
-          <span class="fl"><b>16</b> Carrier <span class="muted">· name, address, country</span></span>
+          <span class="fl"><b>6</b> Carrier <span class="muted">· name, address, country, other references</span></span>
           <textarea data-key="carrier" rows="3"></textarea>
         </label>
         <div class="row">
-          <label class="field grow"><span class="fl"><b>25</b> Truck reg. number</span><input data-key="truck" type="text" autocapitalize="characters" spellcheck="false"></label>
+          <label class="field grow"><span class="fl"><b>18</b> Vehicle reg. number</span><input data-key="truck" type="text" autocapitalize="characters" spellcheck="false"></label>
           <label class="field grow"><span class="fl">Trailer reg. number</span><input data-key="trailer" type="text" autocapitalize="characters" spellcheck="false"></label>
         </div>
         <label class="field">
-          <span class="fl"><b>17</b> Successive carriers</span>
-          <textarea data-key="successive" rows="2"></textarea>
+          <span class="fl"><b>8</b> Carrier's reservations and observations <span class="muted">· on taking over the goods</span></span>
+          <textarea data-key="reservations" rows="2"></textarea>
+        </label>
+        <details class="sub">
+          <summary><b>7</b> Successive carrier</summary>
+          <label class="field"><span class="fl">Name</span><input data-key="succName" type="text"></label>
+          <label class="field"><span class="fl">Address</span><input data-key="succAddress" type="text"></label>
+          <label class="field"><span class="fl">Country</span><input data-key="succCountry" type="text"></label>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2>Instructions and documents</h2>
+        <label class="field">
+          <span class="fl"><b>5</b> Sender's instructions</span>
+          <textarea data-key="instructions" rows="2"></textarea>
         </label>
         <label class="field">
-          <span class="fl"><b>18</b> Carrier's reservations and observations</span>
-          <textarea data-key="reservations" rows="2"></textarea>
+          <span class="fl"><b>9</b> Documents handed to the carrier by the sender</span>
+          <input data-key="documents" type="text" placeholder="e.g. invoice, packing list">
+        </label>
+        <label class="field">
+          <span class="fl"><b>16</b> Special agreements between the sender and the carrier</span>
+          <textarea data-key="special" rows="2"></textarea>
+        </label>
+        <label class="field">
+          <span class="fl"><b>18</b> Other useful particulars <span class="muted">· printed under the reg. numbers</span></span>
+          <input data-key="other" type="text">
+        </label>
+        <label class="field">
+          <span class="fl"><b>19</b> Cash on delivery</span>
+          <input data-key="cod" type="text" placeholder="Amount and currency">
         </label>
       </section>
 
       <section class="card">
         <details class="sub">
-          <summary><b>20</b> To be paid by <span class="muted">· carriage charges</span></summary>
+          <summary><b>17</b> To be paid by <span class="muted">· carriage charges</span></summary>
+          <p class="hint">Write the currency with the amount, e.g. 1 250,00 EUR.</p>
           <div class="charges-grid" id="charges"></div>
         </details>
       </section>
@@ -160,7 +168,7 @@
             <input data-key="issuedDate" type="date">
           </label>
         </div>
-        <p class="hint">Boxes 22–24 (signatures and stamps, goods received) stay empty for signing by hand.</p>
+        <p class="hint">Boxes 22–24 (signatures and stamps, goods received) and the non-contractual part stay empty for writing by hand.</p>
       </section>
 
       <button id="clear-btn" class="text-btn danger clear" type="button">Clear all fields</button>
@@ -174,14 +182,15 @@
           <input id="copies" type="number" min="1" max="10" inputmode="numeric" aria-label="Number of copies">
           <button id="copies-plus" class="step" type="button" aria-label="More copies">+</button>
         </div>
-        <button id="print-btn" class="primary-btn" type="button">Print</button>
+        <button id="print-btn" class="primary-btn" type="button" disabled>Print</button>
       </div>
       <div class="pane-body">
         <div class="pane-head">
           <div id="copy-chips" class="chips copy-chips" aria-label="Preview copy"></div>
           <button id="blank-btn" class="text-btn" type="button">Print blank forms</button>
         </div>
-        <p class="hint print-hint">A4, portrait. In the print dialog keep the scale at 100% (no "fit to page") and choose your printer, or "Save as PDF".</p>
+        <p id="fit-warning" class="fit-warning" role="status" hidden></p>
+        <p class="hint print-hint">A4, portrait. In the print dialog keep the scale at 100% and choose your printer, or "Save as PDF".</p>
         <div id="preview-wrap" class="preview-wrap"><div id="preview" class="preview"></div></div>
       </div>
     </aside>
@@ -201,6 +210,8 @@
   <option value="Loose">
 </datalist>
 
+<!-- IRU's blank form, loaded from template/iru-cmr-2007.svg and drawn on every page. -->
+<div id="form-art" class="form-art" aria-hidden="true"></div>
 <!-- The pages that go to the printer: built when printing, hidden on screen. -->
 <div id="print-root" class="print-root" aria-hidden="true"></div>
 </body>

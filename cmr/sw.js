@@ -1,6 +1,6 @@
 // Offline support: serve the app from the cache, refresh the cache in the background.
 // Bump CACHE when releasing a new version so installed copies update right away.
-const CACHE = "cmr-form-v1";
+const CACHE = "cmr-form-v2";
 const ASSETS = [
   "./",
   "index.html",
@@ -10,6 +10,7 @@ const ASSETS = [
   "js/numbers.js",
   "js/sheet.js",
   "js/texts.js",
+  "template/iru-cmr-2007.svg",
   "icons/icon.svg",
   "icons/icon-192.png",
   "icons/icon-512.png",

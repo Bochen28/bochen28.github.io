@@ -227,7 +227,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .row > .field { margin-bottom: 0; }
 .row .grow { flex: 1 1 200px; }
 .row .date { flex: 0 1 170px; }
-.row select { min-width: 130px; }
+.row .country { flex: 0 1 120px; }
+.form-note { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
@@ -267,23 +268,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .sub summary b { font-size: 12px; padding: 0 5px; border-radius: 6px; background: var(--primary-soft); color: var(--on-primary-soft); }
 .sub[open] summary { margin-bottom: 10px; }
 
-.seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.seg label { flex: 1 1 auto; }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg span {
-  display: block;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-  text-align: center;
-  font-size: 15px;
-  cursor: pointer;
-}
-.seg input:checked + span { background: var(--primary-soft); color: var(--on-primary-soft); border-color: transparent; font-weight: 600; }
-.seg input:focus-visible + span { outline: 2px solid var(--primary); }
-
-.charges-grid { display: grid; grid-template-columns: minmax(90px, 1.4fr) 1fr 0.7fr 1fr; gap: 6px; align-items: center; }
+.charges-grid { display: grid; grid-template-columns: minmax(110px, 1.2fr) 1fr 1fr; gap: 6px; align-items: center; }
 .charges-grid input { min-height: 38px; padding: 6px 8px; font-size: 15px; }
 .ch-head { font-size: 13px; color: var(--muted); font-weight: 600; }
 .ch-name { font-size: 14px; }
@@ -306,209 +291,82 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .step:disabled { opacity: 0.4; cursor: default; }
 
 /* ==========================================================================
-   The A4 sheet. Sizes in mm and pt so the printout matches the preview.
+   The A4 sheet: IRU's blank CMR (Model 2007) with the data on top.
+   Positions are in pt on the IRU page (595.22 × 842 pt), so the print matches the form exactly.
    ========================================================================== */
 
 .sheet {
-  --lfs: 5.2pt;
-  --thin: 0.2mm;
-  --thick: 0.6mm;
+  --form: #ed1c24;
+  position: relative;
   width: 210mm;
   height: 296mm;
-  padding: 6mm 8mm 6mm 9mm;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   background: #fff;
   color: #000;
-  font-family: Arial, "Helvetica Neue", Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
+  font-family: Arial, "Liberation Sans", Arimo, Helvetica, sans-serif;
   font-size: 9pt;
-  line-height: 1.15;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.sheet[data-langs="1"] { --lfs: 6.4pt; }
-.sheet[data-langs="2"] { --lfs: 5.7pt; }
 
-.sheet .l1 { font-weight: 700; }
-.sheet .l2 { color: #333; }
-.sheet .sep { color: #777; }
-
-.copy-band {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2.5mm;
-  height: 8mm;
-  margin-bottom: 1.5mm;
-  font-size: 7.5pt;
+/* The IRU page reaches 1.5 mm from the paper edge, where printers cannot print: it is shrunk to
+   97.5 % and centred, which leaves at least 7 mm all round. */
+.page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 595.22pt;
+  height: 842pt;
+  transform-origin: 0 0;
+  transform: translate(7.6pt, 2.7pt) scale(0.975);
 }
+.art { position: absolute; left: 0; top: 0; width: 595.22pt; height: 842pt; color: var(--form); overflow: visible; }
+
+/* Copy heading, sample-number "No" and other texts printed in the colour of the copy */
+.copy-head { color: var(--form); }
 .copy-no {
-  display: grid;
-  place-items: center;
-  width: 7mm;
-  height: 7mm;
-  border-radius: 1mm;
-  color: #fff;
-  font-size: 13pt;
-  font-weight: 700;
+  position: absolute;
+  left: 13pt;
+  top: 17.4pt;
+  width: 25pt;
+  text-align: right;
+  font: 20pt/1 "Times New Roman", Times, "Liberation Serif", serif;
 }
-.copy-name .l1 { font-size: 9pt; }
-.copy-bar { position: absolute; left: 9.5mm; right: 0; bottom: 0; height: 0.8mm; }
-
-.frame {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border: 0.35mm solid #000;
+.copy-name {
+  position: absolute;
+  left: 39.3pt;
+  white-space: nowrap;
+  font: 5pt/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
-.frame > * { flex: none; }
-.frame > *:not(:last-child) { border-bottom: var(--thin) solid #000; }
+.copy-name b { font-weight: 700; }
+.form-text { color: var(--form); font: 400 7pt/1 "Helvetica Neue", Helvetica, Arial, sans-serif; }
 
-.sec.two { display: flex; }
-.sec.two > .col { flex: 1 1 50%; min-width: 0; display: flex; flex-direction: column; }
-.sec.two > .col:first-child { border-right: var(--thin) solid #000; }
-.col > *:not(:last-child) { border-bottom: var(--thin) solid #000; }
+/* Filled-in data */
+.v { position: absolute; overflow: hidden; line-height: 1; }
+.v.line { display: flex; align-items: flex-end; overflow: visible; white-space: nowrap; }
+.v.center { justify-content: center; }
+.v.strong { font-weight: 700; }
+.v.block { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.17; }
+.v.cell { display: flex; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.no-top { left: 464pt; width: 91pt; justify-content: flex-end; font-weight: 700; }
+.no-top .form-text { margin-right: 0.3em; }
+.no-bottom { left: 39pt; width: 200pt; height: 9pt; white-space: nowrap; font-size: 8pt; font-weight: 700; }
 
-.box {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0.8mm 1.3mm 0.6mm;
-  overflow: hidden;
-}
-.box.bold { outline: var(--thick) solid #000; outline-offset: calc(var(--thick) * -1 + 0.1mm); }
+/* Boxes 10–15 */
+.ggrid { position: absolute; display: grid; overflow: hidden; font-size: 8.5pt; line-height: 1.2; }
+.gc { min-width: 0; padding: 0.15em 3pt 0.15em 10pt; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gc.num { padding: 0.15em 6pt 0.15em 3pt; text-align: right; }
+.gc.filler { padding: 0; }
+.gc.total { padding-top: 1.5pt; border-top: 0.5pt solid #000; font-weight: 700; }
 
-.lbl { display: flex; align-items: flex-start; gap: 1.2mm; flex: none; }
-.num { flex: none; min-width: 2.6mm; font-size: 7pt; font-weight: 700; line-height: 1; }
-.lt { display: block; font-size: var(--lfs); line-height: 1.12; }
-.lt > .l1, .lt > .l2 { display: block; }
-.lt.inline > .l1, .lt.inline > .l2 { display: inline; }
-
-.val {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0.6mm 0 0 3.8mm;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 9pt;
-  line-height: 1.17;
-}
-
-/* Title block */
-.titleblk { display: flex; flex-direction: column; padding: 1.2mm 1.5mm 1mm 2mm; }
-.tb-top { display: flex; gap: 2mm; align-items: flex-start; flex: 1; min-height: 0; }
-.tb-titles { flex: 1; min-width: 0; height: 100%; overflow: hidden; font-size: 6.6pt; line-height: 1.15; }
-.tb-titles > span { display: block; }
-.tb-titles .l2 { font-weight: 700; color: #333; }
-.tb-cmr { font-size: 26pt; font-weight: 700; letter-spacing: 0.04em; line-height: 0.9; }
-.tb-no { display: flex; align-items: baseline; gap: 2mm; height: 6.5mm; flex: none; padding-top: 1.2mm; border-top: var(--thin) solid #000; }
-.tb-no .lt { font-size: 6.5pt; white-space: nowrap; }
-.tb-no-val { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 11pt; font-weight: 700; }
-
-.clause { padding: 0.9mm 1.5mm 0.7mm 2mm; overflow: hidden; font-size: 5.2pt; line-height: 1.12; }
-.clause > span { display: block; }
-.clause .l1 { font-weight: 400; }
-.clause .l2 { color: #333; }
-
-/* Goods */
-.goods { flex: 1 1 auto !important; min-height: 0; display: flex; flex-direction: column; }
-.ggrid {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 30mm 17mm 25mm 1fr 20mm 21mm 20mm;
-  font-size: 8.5pt;
-  line-height: 1.15;
-}
-.ggrid > div { border-right: var(--thin) solid #000; min-width: 0; padding: 0 1.2mm; overflow-wrap: anywhere; }
-.ggrid > div:nth-child(7n) { border-right: 0; }
-.gh { display: flex; flex-direction: column; gap: 0.4mm; padding: 0.8mm 1.2mm 1mm !important; border-bottom: var(--thin) solid #000; }
-.gh .num { margin-bottom: 0.2mm; }
-.gc { padding-top: 0.7mm !important; white-space: pre-wrap; }
-.gc.num-col { text-align: right; }
-.gc.filler { min-height: 0; }
-.gc.total { padding: 0.6mm 1.2mm 0.6mm !important; border-top: var(--thin) solid #000; font-weight: 700; }
-.gc.total .lt { font-size: var(--lfs); }
-
-.adr {
-  flex: none;
-  display: grid;
-  grid-template-columns: 9mm 30mm 1fr 34mm 34mm;
-  border-top: var(--thin) solid #000;
-  min-height: 8.5mm;
-}
-.adr > div { border-right: var(--thin) solid #000; padding: 0.7mm 1.2mm 0.5mm; min-width: 0; overflow: hidden; }
-.adr > div:last-child { border-right: 0; }
-.adr-tag { display: grid; place-items: center; font-weight: 700; font-size: 7pt; }
-.adr-cell { display: flex; flex-direction: column; }
-.adr-val { flex: 1; min-height: 3.5mm; overflow: hidden; font-size: 8pt; white-space: nowrap; text-overflow: clip; }
-
-/* Box 14 */
-.pay { display: flex; gap: 2mm; padding: 0.6mm 0 0 3.8mm; flex: none; }
-.opt { display: flex; align-items: flex-start; gap: 1mm; flex: 1 1 50%; min-width: 0; }
-.opt .lt { font-size: var(--lfs); }
-.cb {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 2.8mm;
-  height: 2.8mm;
-  border: var(--thin) solid #000;
-  font-size: 7pt;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* Box 20 */
-.box.charges { padding: 0; }
-.chgrid {
-  height: 100%;
-  display: grid;
-  grid-template-columns: 1fr 17mm 11mm 17mm;
-  grid-template-rows: auto repeat(7, 1fr);
-}
-.chgrid > div { border-right: var(--thin) solid #000; border-bottom: var(--thin) solid #000; padding: 0.3mm 1mm; min-width: 0; overflow: hidden; display: flex; align-items: center; }
-.chgrid > div:nth-child(4n) { border-right: 0; }
-.chgrid > div:nth-last-child(-n + 4) { border-bottom: 0; }
-.ch-h { font-size: var(--lfs); justify-content: center; text-align: center; line-height: 1.1; }
-.ch-h.first { justify-content: flex-start; text-align: left; padding: 0.8mm 1.3mm !important; }
-.ch-h .lt { font-size: var(--lfs); }
-.ch-l .lt { font-size: calc(var(--lfs) - 0.3pt); line-height: 1.05; }
-.ch-l.strong .l1 { text-transform: uppercase; }
-.ch-v { justify-content: flex-end; font-size: 7.5pt; white-space: nowrap; }
-
-/* Box 21 */
-.r21 .box { flex: 1; }
-.r21 .val { padding-top: 0.4mm; }
-
-/* Boxes 22–24 */
-.sigs { display: flex; }
-.sigs > .box { flex: 1 1 33.3%; min-width: 0; }
-.sigs > .box:not(:last-child) { border-right: var(--thin) solid #000; }
-.sig-space { flex: 1; }
-.recv { display: flex; align-items: flex-end; gap: 1mm; padding: 2.2mm 0 0 3.8mm; }
-.recv .lt { font-size: var(--lfs); white-space: nowrap; }
-.dots { flex: 1; border-bottom: var(--thin) dotted #000; height: 2.6mm; min-width: 4mm; }
-.dots.short { flex: 0.8; }
-
-/* Box 25 and the note */
-.r25 .box { flex: 1; }
-.regs { display: flex; gap: 3mm; padding: 0.7mm 0 0 3.8mm; flex: 1; min-height: 0; }
-.reg { display: flex; align-items: baseline; gap: 1.5mm; flex: 1 1 50%; min-width: 0; }
-.reg .lt { font-size: var(--lfs); white-space: nowrap; }
-.reg b { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 9pt; }
-.note { justify-content: center; padding: 1mm 1.5mm; }
-.note-text { max-height: 100%; overflow: hidden; font-size: 5pt; line-height: 1.15; }
-.note-text .l1 { font-weight: 400; }
+.load-error { margin: 0; padding: 24px; border-radius: 12px; background: var(--surface); }
+.fit-warning { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: #fff4d6; color: #6b4500; font-size: 14px; }
+@media (prefers-color-scheme: dark) { .fit-warning { background: #3f3110; color: #ffd77a; } }
 
 /* ---------- Printing: only the sheets go to the printer ---------- */
 
 .print-root { position: fixed; left: -400mm; top: 0; visibility: hidden; pointer-events: none; }
+.form-art { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 @page { size: A4 portrait; margin: 0; }
 

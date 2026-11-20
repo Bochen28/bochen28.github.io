@@ -1,196 +1,169 @@
-// Builds one A4 page of the CMR note as HTML, and shrinks text that does not fit its box.
-import { T, copyInfo } from "./texts.js";
+// One A4 page of the CMR note: IRU's blank form (template/iru-cmr-2007.svg) in the colour of the copy,
+// with the filled-in data placed in its boxes. Positions are in pt on the IRU page (595.22 × 842 pt),
+// measured from the form itself; text that does not fit its box is shrunk.
+import { copyInfo } from "./texts.js";
 import { goodsTotals } from "./numbers.js";
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-// "2026-11-20" → "20.11.2026"
-export function formatDate(iso) {
+// "2026-11-20" → ["20", "11", "2026"]
+function dateParts(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso || "";
+  return m ? [m[3], m[2], m[1]] : null;
+}
+export function formatDate(iso) {
+  const p = dateParts(iso);
+  return p ? p.join(".") : iso || "";
 }
 
-// A label in every chosen language: one per line, or on one line separated by slashes.
-function label(key, langs, inline = false) {
-  const parts = langs.map((lang, i) => `<span class="${i ? "l2" : "l1"}">${esc(T[key][lang])}</span>`);
-  return inline
-    ? `<span class="lt inline">${parts.join('<span class="sep"> / </span>')}</span>`
-    : `<span class="lt">${parts.join("")}</span>`;
+// Baseline of the text in a line box with line-height 1 (Arial / Helvetica / Roboto metrics).
+const BASELINE = 0.845;
+const pt = (n) => `${Math.round(n * 100) / 100}pt`;
+
+// One line of text sitting on a printed baseline, next to a label of the form. Shrunk text stays on
+// the baseline (the line box is aligned to its bottom) and only its width is checked.
+function line(box, x, baseline, width, value, size = 8.5, cls = "") {
+  if (!String(value ?? "").trim()) return "";
+  return `<div class="v line ${cls}" style="left:${pt(x)};top:${pt(baseline - BASELINE * size)};width:${pt(width)};height:${pt(size)}"
+    data-fit="${size}" data-min="4.5" data-axis="x" data-box="${box}">${esc(value)}</div>`;
 }
 
-function head(num, key, langs, inline) {
-  return `<div class="lbl"><b class="num">${num}</b>${label(key, langs, inline)}</div>`;
+// A block of text filling the free part of a box.
+function block(box, x, y, width, height, value, size = 9) {
+  if (!String(value ?? "").trim()) return "";
+  return `<div class="v block" style="left:${pt(x)};top:${pt(y)};width:${pt(width)};height:${pt(height)}"
+    data-fit="${size}" data-min="5" data-box="${box}">${esc(value)}</div>`;
 }
 
-// A box whose value fills the space under its label, shrunk to fit if needed.
-function box(num, key, value, langs, { inline = false, cls = "", height, size = 9 } = {}) {
-  return `<div class="box ${cls}" style="height:${height}mm">${head(num, key, langs, inline)}
-    <div class="val" data-fit="${size}">${esc(value)}</div></div>`;
+// A cell of the box 17 table: right-aligned, centred vertically.
+function cell(x, y, width, height, value) {
+  if (!String(value ?? "").trim()) return "";
+  return `<div class="v cell" style="left:${pt(x)};top:${pt(y)};width:${pt(width)};height:${pt(height)}"
+    data-fit="8.5" data-min="5" data-box="17 To be paid by"><span>${esc(value)}</span></div>`;
 }
 
-const check = (on) => `<span class="cb">${on ? "✕" : ""}</span>`;
-
+// Boxes 10–15. Column edges follow the form; the numbers columns are right-aligned.
+const GOODS = { x: 41, y: 338, width: 514, height: 130 };
 const GOODS_COLS = [
-  ["6", "b6", "marks", ""],
-  ["7", "b7", "packages", "num-col"],
-  ["8", "b8", "packing", ""],
-  ["9", "b9", "nature", ""],
-  ["10", "b10", "stat", ""],
-  ["11", "b11", "weight", "num-col"],
-  ["12", "b12", "volume", "num-col"],
+  ["marks", 84, ""],
+  ["packages", 88, "num"],
+  ["packing", 85, ""],
+  ["nature", 132.8, ""],
+  ["weight", 62.2, "num"],
+  ["volume", 62, "num"],
 ];
 
-const CHARGE_ROWS = ["carriage", "deductions", "balance", "supplements", "other", "misc", "total"];
-
-function goods(data, langs) {
-  const items = (data.items || []).filter((item) => GOODS_COLS.some(([, , field]) => String(item[field] || "").trim()));
+function goods(data) {
+  const items = (data.items || []).filter((item) => GOODS_COLS.some(([field]) => String(item[field] || "").trim()));
+  if (!items.length) return "";
   const cells = [];
-  for (const [num, key, , cls] of GOODS_COLS) {
-    cells.push(`<div class="gh ${cls}"><b class="num">${num}</b>${label(key, langs)}</div>`);
-  }
   for (const item of items) {
-    for (const [, , field, cls] of GOODS_COLS) cells.push(`<div class="gc ${cls}">${esc(item[field])}</div>`);
+    for (const [field, , cls] of GOODS_COLS) cells.push(`<div class="gc ${field} ${cls}">${esc(item[field])}</div>`);
   }
-  for (const [, , , cls] of GOODS_COLS) cells.push(`<div class="gc filler ${cls}"></div>`);
-
+  for (const [field, , cls] of GOODS_COLS) cells.push(`<div class="gc filler ${field} ${cls}"></div>`);
   const totals = goodsTotals(items);
   const showTotals = items.length > 1 && (totals.packages || totals.weight || totals.volume);
   if (showTotals) {
-    const byField = { marks: label("goodsTotal", langs, true), packages: totals.packages, weight: totals.weight, volume: totals.volume };
-    for (const [, , field, cls] of GOODS_COLS) {
-      const value = field === "marks" ? byField.marks : esc(byField[field] || "");
-      cells.push(`<div class="gc total ${cls}">${value}</div>`);
-    }
+    const values = { marks: "Total", packages: totals.packages, weight: totals.weight, volume: totals.volume };
+    for (const [field, , cls] of GOODS_COLS) cells.push(`<div class="gc total ${field} ${cls}">${esc(values[field] || "")}</div>`);
   }
-
-  const rows = `auto ${items.length ? `repeat(${items.length}, min-content) ` : ""}1fr${showTotals ? " auto" : ""}`;
-  const adrCell = (key, field) =>
-    `<div class="adr-cell">${label(key, langs, true)}<div class="adr-val" data-fit="8">${esc(data[field])}</div></div>`;
-
-  return `<div class="goods">
-    <div class="ggrid" data-fit="8.5" data-min="5" style="grid-template-rows:${rows}">${cells.join("")}</div>
-    <div class="adr">
-      <div class="adr-tag">${esc(T.adr.en)}</div>
-      ${adrCell("adrUn", "adrUn")}${adrCell("adrName", "adrName")}${adrCell("adrLabel", "adrLabel")}${adrCell("adrGroup", "adrGroup")}
-    </div>
-  </div>`;
+  const rows = `repeat(${items.length}, min-content) 1fr${showTotals ? " auto" : ""}`;
+  return `<div class="ggrid" data-fit="8.5" data-min="4" data-box="Goods (10–15)" style="left:${pt(GOODS.x)};top:${pt(GOODS.y)};width:${pt(GOODS.width)};height:${pt(GOODS.height)};
+    grid-template-columns:${GOODS_COLS.map(([, w]) => pt(w)).join(" ")};grid-template-rows:${rows}">${cells.join("")}</div>`;
 }
 
-function charges(data, langs) {
-  const c = data.charges || {};
-  const cells = [
-    `<div class="ch-h first">${head(20, "b20", langs, true)}</div>`,
-    `<div class="ch-h">${label("paySender", langs, true)}</div>`,
-    `<div class="ch-h">${label("payCurrency", langs, true)}</div>`,
-    `<div class="ch-h">${label("payConsignee", langs, true)}</div>`,
-  ];
-  for (const row of CHARGE_ROWS) {
-    const r = c[row] || {};
-    cells.push(
-      `<div class="ch-l${row === "total" ? " strong" : ""}">${label(row, langs, true)}</div>`,
-      `<div class="ch-v">${esc(r.sender)}</div>`,
-      `<div class="ch-v">${esc(r.currency)}</div>`,
-      `<div class="ch-v">${esc(r.consignee)}</div>`,
-    );
-  }
-  return `<div class="box charges" style="height:36mm"><div class="chgrid">${cells.join("")}</div></div>`;
-}
+const parts = (list) => list.map(([text, bold]) => (bold ? `<b>${esc(text)}</b>` : esc(text))).join("");
 
-export function copyBand(index, langs) {
+// The copy heading at the top left ("1 Exemplaire de l'expéditeur / Copy for sender") in the copy's colour.
+export function copyHead(index) {
   const info = copyInfo(index);
-  const names = langs.map((lang, i) => `<span class="${i ? "l2" : "l1"}">${esc(info.names[lang])}</span>`).join('<span class="sep"> / </span>');
-  return `<span class="copy-no" style="background:${info.color}">${info.number}</span><span class="copy-name">${names}</span>
-    <span class="copy-bar" style="background:${info.color}"></span>`;
+  return `<div class="copy-no">${info.number}</div>
+    <div class="copy-name" style="top:${pt(24.7 - BASELINE * 5)}">${parts(info.fr)}</div>
+    <div class="copy-name" style="top:${pt(30.7 - BASELINE * 5)}">${parts(info.en)}</div>`;
 }
 
-// data: the form contents; langs: printed languages, first one is the main one; copy: 0-based copy index.
-export function renderSheet(data, langs, copy) {
+// data: the form contents; copy: 0-based copy index.
+export function renderSheet(data, copy) {
   const d = data || {};
-  const takeover = [d.takeoverPlace, formatDate(d.takeoverDate)].filter(Boolean).join("     ");
-  const titles = langs.map((lang, i) => `<span class="${i ? "l2" : "l1"}">${esc(T.title[lang])}</span>`).join("");
-  const clause = langs.map((lang, i) => `<span class="${i ? "l2" : "l1"}">${esc(T.clause[lang])}</span>`).join("");
-  const note = langs.map((lang, i) => `<span class="${i ? "l2" : "l1"}">${esc(T.note[lang])}</span>`).join(" ");
+  const info = copyInfo(copy);
+  const c = d.charges || {};
+  const plates = [d.truck && `Véhicule / Vehicle: ${d.truck}`, d.trailer && `Remorque / Trailer: ${d.trailer}`].filter(Boolean).join("     ");
+  const issued = dateParts(d.issuedDate);
+  const no = esc(d.no);
 
-  return `<div class="sheet" data-langs="${langs.length}">
-  <div class="copy-band">${copyBand(copy, langs)}</div>
-  <div class="frame">
-    <div class="sec two">
-      <div class="col">
-        ${box(1, "b1", d.sender, langs, { height: 24 })}
-        ${box(2, "b2", d.consignee, langs, { height: 24 })}
-        ${box(3, "b3", d.delivery, langs, { height: 12 })}
-        <div class="box" style="height:14mm">${head(4, "b4", langs)}
-          <div class="val" data-fit="9">${esc(takeover)}</div></div>
-        ${box(5, "b5", d.documents, langs, { height: 12, inline: true })}
-      </div>
-      <div class="col">
-        <div class="titleblk" style="height:20mm">
-          <div class="tb-top">
-            <div class="tb-titles" data-fit="6.6" data-min="4.5">${titles}</div>
-            <div class="tb-cmr">CMR</div>
-          </div>
-          <div class="tb-no">${label("no", langs, true)}<span class="tb-no-val" data-fit="11" data-min="6">${esc(d.no)}</span></div>
-        </div>
-        <div class="clause" style="height:12mm" data-fit="5.2" data-min="3.8">${clause}</div>
-        ${box(16, "b16", d.carrier, langs, { height: 20, cls: "bold" })}
-        ${box(17, "b17", d.successive, langs, { height: 17, cls: "bold" })}
-        ${box(18, "b18", d.reservations, langs, { height: 17, cls: "bold" })}
-      </div>
-    </div>
-    ${goods(d, langs)}
-    <div class="sec two">
-      <div class="col">
-        ${box(13, "b13", d.instructions, langs, { height: 22 })}
-        <div class="box" style="height:16mm">${head(14, "b14", langs, true)}
-          <div class="pay">
-            <span class="opt">${check(d.payment === "paid")}${label("paid", langs, true)}</span>
-            <span class="opt">${check(d.payment === "forward")}${label("forward", langs, true)}</span>
-          </div>
-          <div class="val" data-fit="8.5">${esc(d.paymentNote)}</div></div>
-        ${box(15, "b15", d.cod, langs, { height: 12, inline: true })}
-      </div>
-      <div class="col">
-        ${box(19, "b19", d.special, langs, { height: 14, inline: true })}
-        ${charges(d, langs)}
-      </div>
-    </div>
-    <div class="sec two r21" style="height:9mm">
-      <div class="col"><div class="box">${head(21, "b21", langs, true)}<div class="val" data-fit="9">${esc(d.issuedPlace)}</div></div></div>
-      <div class="col"><div class="box">${head("", "on", langs, true)}<div class="val" data-fit="9">${esc(formatDate(d.issuedDate))}</div></div></div>
-    </div>
-    <div class="sec sigs" style="height:32mm">
-      <div class="box sig"><b class="num">22</b><div class="sig-space"></div>${label("b22", langs)}</div>
-      <div class="box sig bold"><b class="num">23</b><div class="sig-space"></div>${label("b23", langs)}</div>
-      <div class="box sig">${head(24, "b24", langs, true)}
-        <div class="recv"><span>${label("place", langs, true)}</span><span class="dots"></span><span>${label("on", langs, true)}</span><span class="dots short"></span></div>
-        <div class="sig-space"></div>${label("b24sign", langs)}</div>
-    </div>
-    <div class="sec two r25" style="height:12mm">
-      <div class="col"><div class="box bold">${head(25, "b25", langs, true)}
-        <div class="regs">
-          <span class="reg">${label("truck", langs, true)}<b data-fit="9" data-min="6">${esc(d.truck)}</b></span>
-          <span class="reg">${label("trailer", langs, true)}<b data-fit="9" data-min="6">${esc(d.trailer)}</b></span>
-        </div></div></div>
-      <div class="col note"><div class="note-text" data-fit="5" data-min="3.6">${note}</div></div>
-    </div>
+  return `<div class="sheet" style="--form:${info.color}">
+  <div class="page">
+    <svg class="art" viewBox="0 0 595.22 842" aria-hidden="true"><use href="#cmr-iru-2007"/></svg>
+    <div class="copy-head">${copyHead(copy)}</div>
+    <div class="v line no-top" style="top:${pt(32.8 - BASELINE * 9)}" data-fit="9" data-min="4.5" data-axis="x" data-box="CMR number"><span class="form-text">No</span> ${no}</div>
+    <div class="v no-bottom" style="top:${pt(838.1 - BASELINE * 8)}"><span class="form-text">No</span> ${no}</div>
+    ${line("Pays / Country", 418, 25, 56, d.country, 8, "center strong")}
+
+    ${block("1 Sender", 50.3, 52, 242, 52, d.sender)}
+    ${block("2 Consignee", 50.3, 125, 242, 51, d.consignee)}
+    ${/* the place is only 6 pt below the box heading: a little smaller and lower so it clears it */ ""}
+    ${line("3 Taking over: place", 88, 191, 204, d.takeoverPlace, 7.5)}
+    ${line("3 Taking over: country", 88, 202.4, 204, d.takeoverCountry)}
+    ${line("3 Taking over: date", 88, 214.4, 80, formatDate(d.takeoverDate))}
+    ${line("4 Delivery: place", 88, 242.4, 204, d.deliveryPlace)}
+    ${line("4 Delivery: country", 88, 254.4, 204, d.deliveryCountry)}
+    ${line("4 Opening hours", 180, 266.4, 112, d.deliveryHours)}
+    ${block("5 Sender's instructions", 50.3, 287.5, 242, 32, d.instructions, 8.5)}
+
+    ${block("6 Carrier", 308.8, 53.5, 243, 51, d.carrier)}
+    ${line("7 Successive carrier", 355, 122.9, 196, d.succName)}
+    ${line("7 Successive carrier", 355, 134.9, 196, d.succAddress)}
+    ${line("7 Successive carrier", 355, 146.8, 196, d.succCountry)}
+    ${block("8 Carrier's reservations", 310, 193.5, 242, 76, d.reservations, 8.5)}
+    ${block("9 Documents", 308, 289, 244, 30.5, d.documents, 8.5)}
+
+    ${goods(d)}
+    ${line("ADR: UN number", 78, 480.2, 47, d.adrUn, 8)}
+    ${line("ADR: label number", 259, 480.2, 39, d.adrLabel, 8)}
+    ${line("ADR: packing group", 348, 480.2, 57, d.adrGroup, 8)}
+
+    ${block("16 Special agreements", 50.7, 501, 242, 76, d.special, 8.5)}
+    ${cell(367, 503, 90.6, 16.5, c.carriage?.sender)}${cell(461.6, 503, 90, 16.5, c.carriage?.consignee)}
+    ${cell(367, 522, 90.6, 16, c.supplementary?.sender)}${cell(461.6, 522, 90, 16, c.supplementary?.consignee)}
+    ${cell(367, 541, 90.6, 16.5, c.customs?.sender)}${cell(461.6, 541, 90, 16.5, c.customs?.consignee)}
+    ${cell(367, 560, 90.6, 16.5, c.other?.sender)}${cell(461.6, 560, 90, 16.5, c.other?.consignee)}
+    ${block("18 Other useful particulars", 50.2, 593.5, 242, 32, [plates, d.other].filter(Boolean).join("\n"), 8.5)}
+    ${block("19 Cash on delivery", 309, 596, 243, 29.5, d.cod, 8.5)}
+
+    ${line("21 Established in", 116, 659.8, 88, d.issuedPlace)}
+    ${issued ? line("21 Date", 225, 659.8, 118, `${issued[0]}.${issued[1]}.`) : ""}
+    ${issued ? line("21 Date", 353.3, 659.8, 24, issued[2].startsWith("20") ? issued[2].slice(2) : issued[2]) : ""}
   </div>
 </div>`;
 }
 
-const overflows = (el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+// Width of the text itself: right-aligned or centred text that is too long sticks out to the left,
+// which scrollWidth does not count.
+function textWidth(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  return range.getBoundingClientRect().width;
+}
+const overflows = (el) =>
+  el.dataset.axis === "x"
+    ? textWidth(el) > el.getBoundingClientRect().width * 1.002 + 0.5
+    : el.scrollWidth > el.clientWidth + 0.5 || el.scrollHeight > el.clientHeight + 0.5;
 
 // Shrinks every [data-fit] element of a sheet (attached to the page) until its text fits.
+// Returns the names of the boxes whose text still does not fit at the smallest size.
 export function fitSheet(sheet) {
+  const tooLong = new Set();
   for (const el of sheet.querySelectorAll("[data-fit]")) {
     const max = parseFloat(el.dataset.fit);
     const min = parseFloat(el.dataset.min || "5.5");
     let size = max;
     el.style.fontSize = `${size}pt`;
-    if (!el.textContent.trim()) continue;
     while (size > min && overflows(el)) {
       size = Math.max(min, size - 0.25);
       el.style.fontSize = `${size}pt`;
     }
+    if (overflows(el)) tooLong.add(el.dataset.box);
   }
+  return [...tooLong];
 }

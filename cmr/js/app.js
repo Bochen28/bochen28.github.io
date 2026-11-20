@@ -1,25 +1,23 @@
-// CMR Form: fill in the consignment note, preview it on A4 and print it in as many copies as needed.
-import { LANGS, MAX_LANGS, copyInfo } from "./texts.js";
-import { renderSheet, fitSheet, copyBand } from "./sheet.js";
+// CMR Form: fill in the consignment note, preview it on IRU's blank CMR (Model 2007) and print it
+// in as many copies as needed.
+import { copyInfo } from "./texts.js";
+import { renderSheet, fitSheet, copyHead } from "./sheet.js";
 import { goodsTotals } from "./numbers.js";
 
 const STORE_KEY = "cmr-form:v1";
+const TEMPLATE_URL = "template/iru-cmr-2007.svg";
 const MAX_COPIES = 10;
 // Kept when starting a new CMR: they are usually the same for every note from this warehouse.
-const KEEP_ON_NEW = ["sender", "takeoverPlace", "issuedPlace"];
-const ITEM_FIELDS = ["marks", "packages", "packing", "nature", "stat", "weight", "volume"];
+const KEEP_ON_NEW = ["country", "sender", "takeoverPlace", "takeoverCountry", "issuedPlace"];
+const ITEM_FIELDS = ["marks", "packages", "packing", "nature", "weight", "volume"];
 const CHARGE_ROWS = [
   ["carriage", "Carriage charges"],
-  ["deductions", "Deductions"],
-  ["balance", "Balance"],
-  ["supplements", "Supplementary charges"],
+  ["supplementary", "Supplementary charges"],
+  ["customs", "Customs duties"],
   ["other", "Other charges"],
-  ["misc", "Miscellaneous"],
-  ["total", "Total"],
 ];
 const CHARGE_COLS = [
   ["sender", "Sender"],
-  ["currency", "Currency"],
   ["consignee", "Consignee"],
 ];
 
@@ -36,12 +34,14 @@ const emptyItem = () => Object.fromEntries(ITEM_FIELDS.map((f) => [f, ""]));
 
 function emptyData() {
   return {
-    no: "", sender: "", consignee: "", delivery: "", takeoverPlace: "", takeoverDate: "", documents: "",
+    no: "", country: "", sender: "", consignee: "",
+    takeoverPlace: "", takeoverCountry: "", takeoverDate: "",
+    deliveryPlace: "", deliveryCountry: "", deliveryHours: "",
+    instructions: "", carrier: "", succName: "", succAddress: "", succCountry: "",
+    reservations: "", documents: "",
     items: [emptyItem()],
-    adrUn: "", adrName: "", adrLabel: "", adrGroup: "",
-    instructions: "", payment: "", paymentNote: "", cod: "", special: "",
-    carrier: "", successive: "", reservations: "", truck: "", trailer: "",
-    charges: {},
+    adrUn: "", adrLabel: "", adrGroup: "",
+    special: "", charges: {}, truck: "", trailer: "", other: "", cod: "",
     issuedPlace: "", issuedDate: "",
   };
 }
@@ -49,7 +49,7 @@ function emptyData() {
 // ---------- Saved state ----------
 
 let data = emptyData();
-let settings = { copies: 3, main: "en", extra: ["pl", "de"], view: 0 };
+let settings = { copies: 3, view: 0 };
 
 function load() {
   let saved = null;
@@ -59,15 +59,18 @@ function load() {
     saved = null;
   }
   if (saved && typeof saved === "object") {
-    data = { ...emptyData(), ...(saved.data || {}) };
+    const old = saved.data || {};
+    // Notes saved by the first version (own layout) used "delivery" for the place of delivery.
+    if (old.delivery && !old.deliveryPlace) old.deliveryPlace = old.delivery;
+    data = Object.fromEntries(Object.entries(emptyData()).map(([key, empty]) => [key, old[key] ?? empty]));
     if (!Array.isArray(data.items) || !data.items.length) data.items = [emptyItem()];
-    settings = { ...settings, ...(saved.settings || {}) };
+    data.items = data.items.map((item) => ({ ...emptyItem(), ...Object.fromEntries(ITEM_FIELDS.map((f) => [f, item[f] ?? ""])) }));
+    if (typeof data.charges !== "object" || !data.charges) data.charges = {};
+    settings.copies = (saved.settings || {}).copies ?? settings.copies;
   } else {
     data.takeoverDate = today();
     data.issuedDate = today();
   }
-  if (!LANGS[settings.main]) settings.main = "en";
-  settings.extra = (settings.extra || []).filter((l) => LANGS[l] && l !== settings.main).slice(0, MAX_LANGS - 1);
   settings.copies = clampCopies(settings.copies);
   settings.view = 0;
 }
@@ -80,28 +83,23 @@ function save() {
 function saveNow() {
   clearTimeout(saveTimer);
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ data, settings: { ...settings, view: 0 } }));
+    localStorage.setItem(STORE_KEY, JSON.stringify({ data, settings: { copies: settings.copies } }));
   } catch {
     // Private mode or storage full: the form still works, it just is not remembered.
   }
 }
 
 const clampCopies = (n) => Math.min(MAX_COPIES, Math.max(1, Math.round(Number(n)) || 1));
-const langs = () => [settings.main, ...settings.extra];
 
 // ---------- Form ----------
 
 const form = $("#form");
 
 function fillForm() {
-  for (const el of form.querySelectorAll("[data-key]")) {
-    const value = data[el.dataset.key] ?? "";
-    if (el.type === "radio") el.checked = el.value === value;
-    else el.value = value;
-  }
+  for (const el of form.querySelectorAll("[data-key]")) el.value = data[el.dataset.key] ?? "";
   renderItems();
   renderCharges();
-  $("#adr-details").open = Boolean(data.adrUn || data.adrName || data.adrLabel || data.adrGroup) || $("#adr-details").open;
+  if (data.adrUn || data.adrLabel || data.adrGroup) $("#adr-details").open = true;
 }
 
 function renderItems() {
@@ -114,13 +112,12 @@ function renderItems() {
         <div class="item-head"><span>Line ${i + 1}</span>
           <button class="icon-btn" type="button" data-remove="${i}" aria-label="${many ? "Remove" : "Clear"} line ${i + 1}">✕</button></div>
         <div class="item-grid">
-          <label class="field span2"><span class="fl"><b>9</b> Nature of the goods</span>${input("nature")}</label>
-          <label class="field"><span class="fl"><b>7</b> Number of packages</span>${input("packages", 'inputmode="numeric"')}</label>
-          <label class="field"><span class="fl"><b>8</b> Method of packing</span>${input("packing", 'list="packing-list"')}</label>
-          <label class="field"><span class="fl"><b>11</b> Gross weight, kg</span>${input("weight", 'inputmode="decimal"')}</label>
-          <label class="field"><span class="fl"><b>12</b> Volume, m³</span>${input("volume", 'inputmode="decimal"')}</label>
-          <label class="field"><span class="fl"><b>6</b> Marks and Nos</span>${input("marks")}</label>
-          <label class="field"><span class="fl"><b>10</b> Statistical No.</span>${input("stat", 'inputmode="numeric"')}</label>
+          <label class="field span2"><span class="fl"><b>13</b> Nature of the goods</span>${input("nature")}</label>
+          <label class="field"><span class="fl"><b>11</b> Number of packages</span>${input("packages", 'inputmode="numeric"')}</label>
+          <label class="field"><span class="fl"><b>12</b> Method of packing</span>${input("packing", 'list="packing-list"')}</label>
+          <label class="field"><span class="fl"><b>14</b> Gross weight, kg</span>${input("weight", 'inputmode="decimal"')}</label>
+          <label class="field"><span class="fl"><b>15</b> Volume, m³</span>${input("volume", 'inputmode="decimal"')}</label>
+          <label class="field span2"><span class="fl"><b>10</b> Marks and Nos</span>${input("marks")}</label>
         </div>
       </fieldset>`;
     })
@@ -144,7 +141,7 @@ function renderCharges() {
     ([row, name]) =>
       `<span class="ch-name">${name}</span>${CHARGE_COLS.map(
         ([col, colName]) =>
-          `<input type="text" data-charge="${row}" data-col="${col}" value="${esc(c[row]?.[col])}" aria-label="${name}: ${colName}"${col === "currency" ? ' autocapitalize="characters"' : ' inputmode="decimal"'}>`,
+          `<input type="text" data-charge="${row}" data-col="${col}" value="${esc(c[row]?.[col])}" aria-label="${name}: ${colName}">`,
       ).join("")}`,
   ).join("");
   $("#charges").innerHTML = head + rows;
@@ -157,13 +154,11 @@ form.addEventListener("submit", (e) => e.preventDefault());
 function onEdit(event) {
   const el = event.target;
   if (el.dataset.key) {
-    if (el.type === "radio" && !el.checked) return;
     data[el.dataset.key] = el.value;
   } else if (el.dataset.item !== undefined) {
     data.items[Number(el.dataset.item)][el.dataset.field] = el.value;
     renderGoodsTotal();
   } else if (el.dataset.charge) {
-    data.charges = data.charges || {};
     data.charges[el.dataset.charge] = { ...(data.charges[el.dataset.charge] || {}), [el.dataset.col]: el.value };
   } else {
     return;
@@ -185,12 +180,11 @@ $("#add-item").addEventListener("click", () => {
   data.items.push(emptyItem());
   renderItems();
   changed();
-  const inputs = $("#items").querySelectorAll(`[data-item="${data.items.length - 1}"]`);
-  inputs[0]?.focus();
+  $("#items").querySelector(`[data-item="${data.items.length - 1}"]`)?.focus();
 });
 
 $("#new-btn").addEventListener("click", () => {
-  if (!confirm("Start a new CMR?\n\nThe sender, the place of taking over and the place of issue stay. Everything else is cleared and the dates are set to today.")) return;
+  if (!confirm("Start a new CMR?\n\nThe sender, the place of taking over, the country and the place of issue stay. Everything else is cleared and the dates are set to today.")) return;
   const kept = Object.fromEntries(KEEP_ON_NEW.map((k) => [k, data[k]]));
   data = { ...emptyData(), ...kept, takeoverDate: today(), issuedDate: today() };
   fillForm();
@@ -202,44 +196,6 @@ $("#clear-btn").addEventListener("click", () => {
   if (!confirm("Clear every field of this CMR, the sender included?")) return;
   data = emptyData();
   fillForm();
-  changed();
-});
-
-// ---------- Languages ----------
-
-function renderLangs() {
-  $("#lang-main").innerHTML = Object.entries(LANGS)
-    .map(([code, name]) => `<option value="${code}"${code === settings.main ? " selected" : ""}>${name}</option>`)
-    .join("");
-  const full = settings.extra.length >= MAX_LANGS - 1;
-  $("#lang-extra").innerHTML = Object.entries(LANGS)
-    .filter(([code]) => code !== settings.main)
-    .map(([code, name]) => {
-      const on = settings.extra.includes(code);
-      return `<button type="button" class="chip" data-lang="${code}" aria-pressed="${on}"${!on && full ? " disabled" : ""}>${name}</button>`;
-    })
-    .join("");
-}
-
-$("#lang-main").addEventListener("change", (event) => {
-  event.stopPropagation();
-  settings.main = event.target.value;
-  settings.extra = settings.extra.filter((l) => l !== settings.main);
-  renderLangs();
-  changed();
-});
-
-$("#lang-extra").addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-lang]");
-  if (!chip) return;
-  const code = chip.dataset.lang;
-  if (settings.extra.includes(code)) settings.extra = settings.extra.filter((l) => l !== code);
-  else if (settings.extra.length < MAX_LANGS - 1) {
-    // Keep the extra languages in a fixed order, whatever order they were picked in.
-    const order = Object.keys(LANGS);
-    settings.extra = [...settings.extra, code].sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  }
-  renderLangs();
   changed();
 });
 
@@ -263,6 +219,7 @@ function renderCopies() {
 function setCopies(n) {
   settings.copies = clampCopies(n);
   renderCopies();
+  renderPreview();
   changed();
 }
 
@@ -283,10 +240,17 @@ $("#copy-chips").addEventListener("click", (event) => {
 
 const preview = $("#preview");
 const previewWrap = $("#preview-wrap");
+let templateReady = false;
 
 function renderPreview() {
-  preview.innerHTML = renderSheet(data, langs(), settings.view);
-  fitSheet(preview.firstElementChild);
+  if (!templateReady) return;
+  preview.innerHTML = renderSheet(data, settings.view);
+  const tooLong = fitSheet(preview.firstElementChild);
+  const warning = $("#fit-warning");
+  warning.hidden = !tooLong.length;
+  warning.textContent = tooLong.length
+    ? `Too much text for the form: ${tooLong.join(", ")}. Shorten it, or the end is cut off on the print.`
+    : "";
   scalePreview();
 }
 
@@ -309,25 +273,42 @@ function changed() {
   previewTimer = setTimeout(renderPreview, 120);
 }
 
+// IRU's blank form, drawn on every page with <use>, in the colour of each copy.
+async function loadTemplate() {
+  try {
+    const response = await fetch(TEMPLATE_URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    $("#form-art").innerHTML = await response.text();
+    templateReady = true;
+    $("#print-btn").disabled = false;
+    $("#blank-btn").disabled = false;
+    renderPreview();
+  } catch (err) {
+    console.error("CMR form template could not be loaded", err);
+    preview.innerHTML = `<p class="load-error">The blank CMR form could not be loaded. Check the connection and reload the page.</p>`;
+  }
+}
+
 // ---------- Printing ----------
 
 // Fills the hidden print area with one page per copy: the first page is laid out and fitted,
-// the other copies are clones of it with their own copy name and colour.
+// the other copies are clones of it with their own heading and colour.
 function buildPrint(blank) {
   const root = $("#print-root");
-  const l = langs();
-  root.innerHTML = renderSheet(blank ? emptyData() : data, l, 0);
+  root.innerHTML = renderSheet(blank ? emptyData() : data, 0);
   const first = root.firstElementChild;
   fitSheet(first);
   for (let i = 1; i < settings.copies; i++) {
     const page = first.cloneNode(true);
-    page.querySelector(".copy-band").innerHTML = copyBand(i, l);
+    page.style.setProperty("--form", copyInfo(i).color);
+    page.querySelector(".copy-head").innerHTML = copyHead(i);
     root.append(page);
   }
   printPrepared = true;
 }
 
 function print(blank) {
+  if (!templateReady) return;
   saveNow();
   buildPrint(blank);
   window.print();
@@ -337,7 +318,7 @@ $("#print-btn").addEventListener("click", () => print(false));
 $("#blank-btn").addEventListener("click", () => print(true));
 // Printing from the browser menu (Ctrl+P) prints the filled-in note too.
 window.addEventListener("beforeprint", () => {
-  if (!printPrepared) buildPrint(false);
+  if (!printPrepared && templateReady) buildPrint(false);
 });
 window.addEventListener("afterprint", () => {
   printPrepared = false;
@@ -348,10 +329,10 @@ window.addEventListener("pagehide", saveNow);
 // ---------- Start ----------
 
 load();
-renderLangs();
 renderCopies();
 fillForm();
-renderPreview();
+$("#blank-btn").disabled = true;
+loadTemplate();
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch((err) => console.warn("Offline mode unavailable", err));
